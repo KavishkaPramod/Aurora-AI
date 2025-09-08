@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- CRITICAL: This meta tag ensures the layout adapts to the device's screen width -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aurora AI</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/style.css"/>
+    <style>
+        :root {
+            --bg-color: #1e1e1e;
+            --text-color: #e0e0e0;
+            --header-bg: #333333;
+            --chat-bg: #252525;
+            --user-msg-bg: #4a90e2;
+            --bot-msg-bg: #3a3a3a; /* Slightly lighter for better contrast */
+            --input-wrapper-bg: #2a2a2a;
+            --border-color: #444;
+            --icon-color: #9e9e9e;
+            --timestamp-color: #a0a0a0;
+            --primary-color: #4a90e2;
+            /* MOBILE-FIRST: Base font size */
+            font-size: 16px; 
+        }
+
+        body[data-theme="light"] {
+            --bg-color: #f0f2f5;
+            --text-color: #1c1e21;
+            --header-bg: #ffffff;
+            --chat-bg: #ffffff;
+            --user-msg-bg: #0084ff;
+            --bot-msg-bg: #e4e6eb;
+            --input-wrapper-bg: #f0f2f5;
+            --border-color: #ced0d4;
+            --icon-color: #606770;
+            --timestamp-color: #606770;
+        }
+
+        /* --- Base Styles --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        #app-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--chat-bg);
+            overflow: hidden;
+            transition: background-color 0.3s;
+        }
+
+        /* --- Header --- */
+        #header {
+            padding: 10px 15px; /* Reduced padding for mobile */
+            background-color: var(--header-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        #header h1 { font-size: 1.1rem; font-weight: 600; margin: 0; }
+        #header-actions { display: flex; gap: 5px; } /* Reduced gap */
+        .header-btn {
+            background: none;
+            border: none;
+            color: var(--icon-color);
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 50%;
+        }
+        .header-btn:hover { background-color: var(--bot-msg-bg); }
+        .header-btn svg { width: 22px; height: 22px; display: block; }
+
+        /* --- Chat Window --- */
+        #chat-window { flex-grow: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
+        #chat-window::-webkit-scrollbar { width: 6px; }
+        #chat-window::-webkit-scrollbar-track { background: transparent; }
+        #chat-window::-webkit-scrollbar-thumb { background-color: var(--primary-color); border-radius: 10px; }
+
+        /* --- Messages --- */
+        .message-wrapper { display: flex; flex-direction: column; }
+        .message-wrapper.user-message { align-items: flex-end; }
+        .message-wrapper.bot-message { align-items: flex-start; }
+        .message-container { display: flex; align-items: flex-end; gap: 8px; }
+        .user-message .message-container { flex-direction: row-reverse; }
+        .message { display: flex; align-items: flex-start; gap: 10px; max-width: 90%; line-height: 1.5; position: relative; }
+        .message-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1.2rem; flex-shrink: 0; }
+        .user-message .message-icon { background-color: #7b1fa2; color: white; }
+        .bot-message .message-icon { background-color: #0277bd; color: white; }
+        .message-content { padding: 10px 15px; border-radius: 18px; white-space: pre-wrap; word-wrap: break-word; }
+        .user-message .message-content { background-color: var(--user-msg-bg); color: #ffffff; border-bottom-right-radius: 4px; }
+        .bot-message .message-content { background-color: var(--bot-msg-bg); border-bottom-left-radius: 4px; }
+        .bot-message .message-content p:first-child, .user-message .message-content p:first-child { margin-top: 0; }
+        .bot-message .message-content p:last-child, .user-message .message-content p:last-child { margin-bottom: 0; }
+        .message-timestamp { font-size: 0.7rem; color: var(--timestamp-color); margin: 4px 0 10px 50px; }
+        .user-message .message-timestamp { margin-right: 50px; text-align: right; }
+
+        /* MOBILE FIX: Redesigned Message Actions */
+        .message-actions { align-self: center; display: flex; gap: 5px; opacity: 0.5; transition: opacity 0.2s; }
+        .message-wrapper:hover .message-actions, .message-container:focus-within .message-actions { opacity: 1; }
+        .msg-action-btn { background: none; border: none; color: var(--icon-color); cursor: pointer; border-radius: 50%; width: 32px; height: 32px; display: flex; justify-content: center; align-items: center; }
+        .msg-action-btn:hover { background-color: var(--bot-msg-bg); }
+        .msg-action-btn svg { width: 18px; height: 18px; }
+
+        /* --- Input Area --- */
+        #input-area { padding: 8px 10px; border-top: 1px solid var(--border-color); background-color: var(--header-bg); position: relative; flex-shrink: 0; }
+        .typing-indicator { display: none; align-items: center; gap: 5px; margin-bottom: 8px; padding-left: 10px; }
+        .typing-indicator.visible { display: flex; }
+        .typing-indicator span { font-style: italic; font-size: 0.9rem; }
+        .dot { width: 8px; height: 8px; background-color: var(--primary-color); border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
+        .dot:nth-child(2) { animation-delay: -0.32s; } .dot:nth-child(3) { animation-delay: -0.16s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
+        #image-preview-container { display: none; position: relative; width: 60px; margin-bottom: 8px; }
+        #image-preview { width: 100%; height: 60px; object-fit: cover; border-radius: 8px; }
+        #remove-image-btn { position: absolute; top: -5px; right: -5px; background: #333; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 14px; }
+        #chat-form { display: flex; gap: 8px; align-items: flex-end; }
+        #input-wrapper { display: flex; flex-grow: 1; background-color: var(--input-wrapper-bg); border-radius: 22px; border: 1px solid var(--border-color); align-items: center; padding: 0 5px 0 12px; }
+        #input-wrapper:focus-within { border-color: var(--primary-color); }
+        .action-btn { background: transparent; border: none; color: var(--icon-color); cursor: pointer; padding: 6px; border-radius: 50%; display: flex; justify-content: center; align-items: center; }
+        .action-btn:hover { background-color: var(--border-color); }
+        .action-btn svg { width: 24px; height: 24px; }
+        #chat-input { flex-grow: 1; background: transparent; border: none; color: var(--text-color); font-size: 1rem; padding: 10px 0; resize: none; max-height: 100px; overflow-y: auto; }
+        #chat-input:focus { outline: none; }
+        #send-button { background-color: var(--primary-color); border: none; color: white; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: background-color 0.2s; flex-shrink: 0; }
+        #send-button svg { width: 22px; height: 22px; }
+        #send-button:disabled { background-color: #555; cursor: not-allowed; }
+        emoji-picker { position: absolute; bottom: 70px; right: 10px; display: none; z-index: 10; width: calc(100% - 20px); max-width: 350px; }
+        emoji-picker.visible { display: block; }
+        
+        /* --- Loader --- */
+        #loader-overlay { position: absolute; inset: 0; background: var(--chat-bg); display: flex; justify-content: center; align-items: center; z-index: 100; transition: opacity 0.5s; opacity: 1; }
+        #loader-overlay.hidden { opacity: 0; pointer-events: none; }
+        .spinner { width: 50px; height: 50px; border: 5px solid var(--border-color); border-top-color: var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* --- Code Blocks --- */
+        pre { background-color: #161616; border: 1px solid var(--border-color); border-radius: 8px; padding: 1em; overflow-x: auto; position: relative; }
+        .copy-code-btn { position: absolute; top: 10px; right: 10px; background: #444; color: #fff; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8rem; opacity: 0; transition: opacity 0.2s; }
+        pre:hover .copy-code-btn { opacity: 1; }
+
+        /* --- DESKTOP VIEW --- */
+        @media (min-width: 768px) {
+            :root { font-size: 16px; }
+            #app-container { border-radius: 12px; height: 95vh; max-height: 900px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+            #header { padding: 10px 20px; }
+            #header h1 { font-size: 1.2rem; }
+            #chat-window { padding: 20px; }
+            #input-area { padding: 10px 15px; }
+            .message { max-width: 85%; }
+            .message-icon { width: 40px; height: 40px; }
+            .message-timestamp { font-size: 0.75rem; margin-left: 60px; }
+            .user-message .message-timestamp { margin-right: 60px; }
+            emoji-picker { width: 352px; } /* Default width for desktop */
+        }
+    </style>
+</head>
+<body data-theme="dark">
+    <div id="app-container">
+        <div id="loader-overlay"><div class="spinner"></div></div>
+        <div id="header">
+            <h1>Aurora AI</h1>
+            <div id="header-actions">
+                <button class="header-btn" id="theme-toggle-btn" title="Toggle Theme">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-5.4-5.4c0-1.81.88-3.39 2.26-4.4A8.899 8.899 0 0 0 12 3z"/></svg>
+                </button>
+                <button class="header-btn" id="clear-chat-btn" title="Clear Chat">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                </button>
+            </div>
+        </div>
+        <div id="chat-window"></div>
+        <div id="input-area">
+            <div id="typing-indicator" class="typing-indicator"><span>Thinking</span><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+            <emoji-picker class="light"></emoji-picker>
+            <div id="image-preview-container">
+                <img id="image-preview" src="" alt="Image preview"/>
+                <button id="remove-image-btn">&times;</button>
+            </div>
+            <form id="chat-form">
+                <div id="input-wrapper">
+                    <button type="button" class="action-btn" id="emoji-btn" title="Emoji">
+                         <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-2.5-6.5c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5-1.5.67-1.5 1.5.67 1.5 1.5 1.5zm5 0c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5-1.5.67-1.5 1.5.67 1.5 1.5 1.5zm-2.5 3c-1.48 0-2.75-.81-3.45-2H15.9c-.7 1.19-1.97 2-3.45 2z"/></svg>
+                    </button>
+                    <textarea id="chat-input" placeholder="Ask anything..." rows="1"></textarea>
+                    <button type="button" class="action-btn" id="file-btn" title="Attach Image">
+                         <svg viewBox="0 0 24 24"><path fill="currentColor" d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>
+                    </button>
+                </div>
+                <button id="send-button" type="submit" title="Send Message">
+                    <svg viewBox="0 0 24 24"><path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                </button>
+            </form>
+            <input type="file" id="file-input" hidden accept="image/*" />
+        </div>
+    </div>
+
+    <!-- External Libraries -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
+
+    <script>
+        // --- CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDpcGW92YYiM6Ca_Qn8OpCkCiBQRBCEZGo",
+            authDomain: "aurora-ai-39c4d.firebaseapp.com",
+            databaseURL: "https://aurora-ai-39c4d-default-rtdb.firebaseio.com",
+            projectId: "aurora-ai-39c4d",
+            storageBucket: "aurora-ai-39c4d.appspot.com",
+            messagingSenderId: "566232529399",
+            appId: "1:566232529399:web:de17eae68ceeb5461d16f2"
+        };
+        const GEMINI_API_KEY = "AIzaSyBSH-XIGGpi10SZZZHZa7ECI8T7ak9Z-TQ"; // <-- IMPORTANT: Add your Gemini API key here!
+        
+        // --- API & MODEL ---
+        const MODEL_NAME = "gemini-1.5-flash";
+        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent`;
+
+        // --- INITIALIZATION ---
+        try {
+            firebase.initializeApp(firebaseConfig);
+        } catch(e) { console.error("Firebase initialization failed.", e); }
+        const database = firebase.database();
+        const chatHistoryRef = database.ref('chatHistory');
+        
+        // --- DOM REFERENCES ---
+        const allDOMElements = {
+            loader: document.getElementById('loader-overlay'),
+            chatWindow: document.getElementById('chat-window'),
+            chatForm: document.getElementById('chat-form'),
+            chatInput: document.getElementById('chat-input'),
+            sendButton: document.getElementById('send-button'),
+            typingIndicator: document.getElementById('typing-indicator'),
+            fileBtn: document.getElementById('file-btn'),
+            fileInput: document.getElementById('file-input'),
+            imagePreviewContainer: document.getElementById('image-preview-container'),
+            imagePreview: document.getElementById('image-preview'),
+            removeImageBtn: document.getElementById('remove-image-btn'),
+            clearChatBtn: document.getElementById('clear-chat-btn'),
+            themeToggleBtn: document.getElementById('theme-toggle-btn'),
+            emojiBtn: document.getElementById('emoji-btn'),
+            emojiPicker: document.querySelector('emoji-picker'),
+        };
+
+        let pendingImageBase64 = null;
+
+        // --- CORE FUNCTIONS ---
+        async function getGeminiResponse(prompt, imageBase64 = null) {
+            if (!GEMINI_API_KEY || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY") {
+                throw new Error("Gemini API key is not configured.");
+            }
+            const parts = [{ "text": prompt }];
+            if (imageBase64) {
+                const mimeType = imageBase64.substring(imageBase64.indexOf(":") + 1, imageBase64.indexOf(";"));
+                const base64Data = imageBase64.split(',')[1];
+                parts.push({ "inline_data": { "mime_type": mimeType, "data": base64Data } });
+            }
+            const requestBody = { "contents": [{ parts }] };
+            const response = await fetch(GEMINI_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_API_KEY },
+                body: JSON.stringify(requestBody),
+            });
+            if (!response.ok) {
+                 const errorData = await response.json();
+                 console.error("API Error Response:", errorData);
+                 throw new Error(`API Error: ${errorData.error.message}`);
+            }
+            const data = await response.json();
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a valid response.";
+        }
+
+        function displayMessage(key, messageData) {
+            const { text, sender, timestamp, image } = messageData;
+            const { chatWindow } = allDOMElements;
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = `message-wrapper ${sender}-message`;
+            messageWrapper.dataset.key = key;
+
+            const messageContainer = document.createElement('div');
+            messageContainer.className = 'message-container';
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message`;
+
+            const iconHTML = `<div class="message-icon">${sender === 'user' ? '👤' : '🤖'}</div>`;
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+
+            let contentHTML = '';
+            if (image) contentHTML += `<img src="${image}" style="max-width: 200px; border-radius: 8px; margin-bottom: 10px; display: block;"/>`;
+            if (text) {
+                if (sender === 'bot') {
+                    contentHTML += marked.parse(text);
+                } else {
+                    const escapedText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    contentHTML += `<p>${escapedText}</p>`;
+                }
+            }
+            contentDiv.innerHTML = contentHTML;
+
+            const actionsHTML = sender === 'bot' ? `
+                <div class="message-actions">
+                    <button class="msg-action-btn copy-msg-btn" title="Copy Text"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+                </div>
+            ` : '';
+
+            messageDiv.innerHTML = iconHTML;
+            messageDiv.appendChild(contentDiv);
+            messageContainer.appendChild(messageDiv);
+            if (sender === 'bot') messageContainer.insertAdjacentHTML('beforeend', actionsHTML);
+            
+            const time = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const timestampDiv = document.createElement('div');
+            timestampDiv.className = 'message-timestamp';
+            timestampDiv.textContent = time;
+
+            messageWrapper.appendChild(messageContainer);
+            messageWrapper.appendChild(timestampDiv);
+            chatWindow.appendChild(messageWrapper);
+            
+            // Scroll to bottom after image loads to get correct height
+            const images = contentDiv.querySelectorAll('img');
+            if (images.length > 0) {
+                images[images.length - 1].onload = () => chatWindow.scrollTop = chatWindow.scrollHeight;
+            } else {
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            }
+
+            contentDiv.querySelectorAll('pre').forEach(pre => {
+                const code = pre.querySelector('code');
+                if (!code) return;
+                const copyButton = document.createElement('button');
+                copyButton.className = 'copy-code-btn';
+                copyButton.textContent = 'Copy';
+                pre.appendChild(copyButton);
+            });
+        }
+
+        function saveMessage(text, sender, imageBase64 = null) {
+            const messageData = { text, sender, timestamp: Date.now() };
+            if (imageBase64) messageData.image = imageBase64;
+            chatHistoryRef.push(messageData).catch(error => console.error("Firebase write failed:", error));
+        }
+
+        // --- EVENT HANDLERS ---
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            const { chatInput, sendButton, typingIndicator } = allDOMElements;
+            const userInput = chatInput.value.trim();
+            if (userInput === "" && !pendingImageBase64) return;
+            chatInput.disabled = true;
+            sendButton.disabled = true;
+            saveMessage(userInput, 'user', pendingImageBase64);
+            const imageToSend = pendingImageBase64;
+            resetImagePreview();
+            chatInput.value = "";
+            chatInput.style.height = 'auto';
+            typingIndicator.classList.add('visible');
+            try {
+                const botResponse = await getGeminiResponse(userInput, imageToSend);
+                saveMessage(botResponse, 'bot');
+            } catch (error) {
+                console.error("Failed to get Gemini response:", error);
+                saveMessage(`An error occurred: ${error.message}`, 'bot');
+            } finally {
+                typingIndicator.classList.remove('visible');
+                chatInput.disabled = false;
+                sendButton.disabled = false;
+                chatInput.focus();
+            }
+        }
+        
+        function handleFileInputChange(event) {
+            const file = event.target.files[0];
+            const { imagePreview, imagePreviewContainer } = allDOMElements;
+            if (file && file.type.startsWith("image/")) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    pendingImageBase64 = e.target.result;
+                    imagePreview.src = pendingImageBase64;
+                    imagePreviewContainer.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            } else if (file) {
+                alert("Please select a valid image file.");
+            }
+        }
+        
+        function resetImagePreview() {
+            const { imagePreview, imagePreviewContainer, fileInput } = allDOMElements;
+            pendingImageBase64 = null;
+            imagePreview.src = '';
+            imagePreviewContainer.style.display = 'none';
+            fileInput.value = '';
+        }
+
+        // --- INITIAL LOAD & LISTENERS ---
+        chatHistoryRef.once('value')
+            .then(() => allDOMElements.loader.classList.add('hidden'))
+            .catch(err => {
+                allDOMElements.loader.classList.add('hidden');
+                console.error("Firebase read failed:", err);
+                alert("Could not load chat history. Check Firebase rules.");
+            });
+        chatHistoryRef.on('child_added', (snapshot) => displayMessage(snapshot.key, snapshot.val()));
+        chatHistoryRef.on('child_removed', (snapshot) => {
+            const elementToRemove = document.querySelector(`[data-key="${snapshot.key}"]`);
+            if(elementToRemove) elementToRemove.remove();
+        });
+
+        // Event Listeners for all UI elements
+        const { chatForm, fileBtn, fileInput, removeImageBtn, chatInput, themeToggleBtn, clearChatBtn, emojiBtn, emojiPicker, chatWindow } = allDOMElements;
+        
+        chatForm.addEventListener('submit', handleFormSubmit);
+        fileBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFileInputChange);
+        removeImageBtn.addEventListener('click', resetImagePreview);
+        
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleFormSubmit(e);
+            }
+        });
+        chatInput.addEventListener('input', () => {
+            chatInput.style.height = 'auto';
+            chatInput.style.height = `${chatInput.scrollHeight}px`;
+        });
+
+        themeToggleBtn.addEventListener('click', () => {
+            const newTheme = document.body.dataset.theme === 'light' ? 'dark' : 'light';
+            document.body.dataset.theme = newTheme;
+            localStorage.setItem('chatTheme', newTheme);
+        });
+        
+        clearChatBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to delete the entire chat history?')) {
+                chatHistoryRef.remove();
+                chatWindow.innerHTML = '';
+            }
+        });
+        
+        emojiBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            emojiPicker.classList.toggle('visible');
+        });
+        emojiPicker.addEventListener('emoji-click', e => {
+            chatInput.value += e.detail.unicode;
+        });
+
+        chatWindow.addEventListener('click', (e) => {
+            const copyMsgBtn = e.target.closest('.copy-msg-btn');
+            if (copyMsgBtn) {
+                const messageWrapper = copyMsgBtn.closest('.message-wrapper');
+                const content = messageWrapper.querySelector('.message-content').innerText;
+                navigator.clipboard.writeText(content).then(() => alert('Copied to clipboard!'));
+                return;
+            }
+            const copyCodeBtn = e.target.closest('.copy-code-btn');
+            if(copyCodeBtn) {
+                const code = copyCodeBtn.previousElementSibling.innerText;
+                navigator.clipboard.writeText(code).then(() => {
+                    copyCodeBtn.textContent = 'Copied!';
+                    setTimeout(() => { copyCodeBtn.textContent = 'Copy'; }, 2000);
+                });
+            }
+        });
+
+        // MOBILE UX: Close emoji picker when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!emojiPicker.contains(e.target) && e.target !== emojiBtn) {
+                emojiPicker.classList.remove('visible');
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('chatTheme') || 'dark';
+            document.body.dataset.theme = savedTheme;
+        });
+    </script>
+</body>
+</html>
